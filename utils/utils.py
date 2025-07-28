@@ -42,5 +42,5 @@ def combine_mask(img1: Image.Image, img2: Image.Image) -> Image.Image:
 
 def img_to_b64(img: Image.Image) -> str:
     buffer = BytesIO()
-    img.save(buffer, format="JPEG")
-    return "data:image/jpeg;base64," + base64.b64encode(buffer.getvalue()).decode("utf-8")
+    img.save(buffer, format="PNG")
+    return "data:image/png;base64," + base64.b64encode(buffer.getvalue()).decode("utf-8")

@@ -7,6 +7,8 @@ from PIL import Image
 from ultralytics import YOLO
 from torch import Tensor
 
+from temp.temp import tmp_images, tmp_images_b
+
 YOLO_PATH = "./best.pt"
 
 lock = asyncio.Lock()
@@ -24,7 +26,7 @@ ignored_classes: set[int] = set([8, 9])
 
 def infer_yolo(img: Image.Image) -> Image.Image:
     arr = np.array(img)
-    mask = np.zeros((arr.shape[0], arr.shape[1], 3), dtype=np.uint8)
+    mask = np.zeros((arr.shape[0], arr.shape[1], 1), dtype=np.uint8)
 
     results = yolo.predict(img, device="cuda")
     for result in results:
@@ -37,13 +39,12 @@ def infer_yolo(img: Image.Image) -> Image.Image:
             if c in ignored_classes:
                 continue
             x, y, w, h = [int(x) for x in box]
-            cv.rectangle(mask, [x, y], [x+w, y+h], (0, 0, 255), -1)
+            cv.rectangle(mask, [x, y], [x+w, y+h], (255), -1)
 
     kernel = cv.getStructuringElement(cv.MORPH_RECT, (9, 9), (4, 4))
     dilated = cv.dilate(mask, kernel, iterations=5)
-    masked = cv.bitwise_or(arr, dilated)
 
-    return Image.fromarray(masked)
+    return Image.fromarray(dilated)
 
 async def infer_pipe(
     prompt: str,
@@ -61,5 +62,5 @@ async def infer_pipe(
             num_images_per_prompt=num_images_per_prompt,
         ).images
 
-        return images
+        return [img.resize(image.size()) for img in images]
 
