@@ -11,7 +11,7 @@ from utils.utils import (
     combine_mask,
     img_to_b64,
 )
-from models.models import infer, pipe
+from models.models import infer_yolo, infer_pipe
 from prompts.prompts import (
     PROMPT_ADD,
     PROMPT_NEG_ADD,
@@ -25,7 +25,7 @@ from temp.temp import tmp_images
 app = FastAPI(
     title="staging-backend",
     version="1.0.0",
-    description="Whereness AI Service Platform for various AI tasks and streaming capabilities.",
+    description="Virtual Staging Spike",
     docs_url="/api/openapi",
     openapi_url="/api/openapi.json",
 )
@@ -60,7 +60,7 @@ class AddResponse(BaseModel):
 
 @app.post("/add")
 async def add(item: AddRequest):
-    header = f"Style: {item.style}\nRoom Type: {item.room}\nLayout Type: {item.layout}\n"
+    modifier = f"Style: {item.style}\nRoom Type: {item.room}\nLayout Type: {item.layout}\n"
     _, mask_image = decode_mask_image(item.mask_image)
     _, mask_image_neg = decode_mask_image(item.mask_image_neg)
     _, image = decode_image(item.image)
@@ -68,17 +68,15 @@ async def add(item: AddRequest):
     mask = create_mask(mask_image, mask_image_neg)
     mask = mask.resize(image.size)
 
-    final_prompt = f"{header}{PROMPT_ADD}"
-    outputs = pipe(
+    final_prompt = f"{modifier}{PROMPT_ADD}"
+    images = await infer_pipe(
         prompt=final_prompt,
-        negative_prompt=PROMPT_NEG_ADD,
+        prompt_neg=PROMPT_NEG_ADD,
         image=image,
-        mask_image=mask,
-        num_images_per_prompt=4,
-    ).images
+        mask=mask,
+    )
 
     res: list[str] = []
-    images = tmp_images()
     for image in images:
         res.append(img_to_b64(image))
 
@@ -103,16 +101,15 @@ async def remove(item: RemoveRequest):
     mask = mask.resize(image.size)
 
     if use_yolo:
-        yolo_mask = infer(image)
+        yolo_mask = infer_yolo(image)
         mask = combine_mask(yolo_mask, mask)
 
-    images = pipe(
+    images = await infer_pipe(
         prompt=PROMPT_REMOVE,
-        negative_prompt=PROMPT_NEG_REMOVE,
+        prompt_neg=PROMPT_NEG_REMOVE,
         image=image,
-        mask_image=mask,
-        num_images_per_prompt=4,
-    ).images
+        mask=mask,
+    )
 
     res: list[str] = []
     for image in images:
