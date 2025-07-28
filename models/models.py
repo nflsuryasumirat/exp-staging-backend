@@ -5,6 +5,7 @@ import cv2 as cv
 from diffusers.pipelines.stable_diffusion_xl.pipeline_stable_diffusion_xl_inpaint import StableDiffusionXLInpaintPipeline
 from PIL import Image
 from ultralytics import YOLO
+from torch import Tensor
 
 YOLO_PATH = "./best.pt"
 
@@ -19,16 +20,22 @@ pipe = StableDiffusionXLInpaintPipeline.from_pretrained(
 
 yolo = YOLO(YOLO_PATH)
 
-def infer_yolo(img: Image.Image) -> Image.Image:
-    # classes = list(yolo.names.values())
+ignored_classes: set[int] = set([8, 9])
 
+def infer_yolo(img: Image.Image) -> Image.Image:
     arr = np.array(img)
     mask = np.zeros((arr.shape[0], arr.shape[1], 3), dtype=np.uint8)
 
     results = yolo.predict(img, device="cuda")
     for result in results:
         assert result.boxes is not None
-        for box in result.boxes.xywh.tolist():
+        cls = result.boxes.cls
+        assert type(cls) is Tensor
+        cls = [int(x.item()) for x in cls]
+
+        for box, c in zip(result.boxes.xywh.tolist(), cls):
+            if c in ignored_classes:
+                continue
             x, y, w, h = [int(x) for x in box]
             cv.rectangle(mask, [x, y], [x+w, y+h], (0, 0, 255), -1)
 
