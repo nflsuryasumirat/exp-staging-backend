@@ -1,8 +1,6 @@
 from fastapi import FastAPI
 from fastapi.middleware.cors import CORSMiddleware
 from pydantic import BaseModel
-from io import BytesIO
-from typing import Any
 
 from utils.utils import (
     decode_mask_image,
@@ -18,8 +16,6 @@ from prompts.prompts import (
     PROMPT_REMOVE,
     PROMPT_NEG_REMOVE,
 )
-
-from temp.temp import tmp_images
 
 
 app = FastAPI(
@@ -60,7 +56,7 @@ class AddResponse(BaseModel):
 
 @app.post("/add")
 async def add(item: AddRequest):
-    modifier = f"Style: {item.style}\nRoom Type: {item.room}\nLayout Type: {item.layout}\n"
+    room, layout, style = item.room, item.layout, item.style
     _, mask_image = decode_mask_image(item.mask_image)
     _, mask_image_neg = decode_mask_image(item.mask_image_neg)
     _, image = decode_image(item.image)
@@ -68,9 +64,8 @@ async def add(item: AddRequest):
     mask = create_mask(mask_image, mask_image_neg)
     mask = mask.resize(image.size)
 
-    final_prompt = f"{modifier}{PROMPT_ADD}"
     images = await infer_pipe(
-        prompt=final_prompt,
+        prompt=PROMPT_ADD(room, layout, style),
         prompt_neg=PROMPT_NEG_ADD,
         image=image,
         mask=mask,
