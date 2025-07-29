@@ -62,5 +62,5 @@ async def infer_pipe(
             num_images_per_prompt=num_images_per_prompt,
         ).images
 
-        return [img.resize(image.size()) for img in images]
+        return [img.resize(image.size) for img in images]
 
